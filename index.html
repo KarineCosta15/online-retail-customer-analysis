@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Online Retail · Quem gera valor no e-commerce</title>
+<meta name="description" content="Dashboard interativo de customer analytics com 541.909 registros do UCI Online Retail Dataset.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div>
+    <h1>Quem realmente gera valor no e&#8209;commerce?</h1>
+    <p class="lead">Um ano de vendas de uma loja online britânica de presentes — 541.909 registros do UCI Online Retail Dataset, limpos, agregados por cliente e segmentados por frequência e valor.</p>
+  </div>
+  <dl class="source">
+    <div><dt>Período</dt><dd>dez/2010 a dez/2011</dd></div>
+    <div><dt>Base</dt><dd><a href="https://archive.ics.uci.edu/dataset/352/online+retail" target="_blank" rel="noopener">UCI Online Retail</a></dd></div>
+    <div><dt>Stack</dt><dd>Python, pandas, Chart.js</dd></div>
+  </dl>
+</header>
+
+<section class="split" aria-labelledby="split-title">
+  <h2 id="split-title" class="split-title">A mesma base, contada de dois jeitos</h2>
+  <p class="hint">Clique em um segmento para filtrar o dashboard inteiro. Clique de novo para remover.</p>
+  <div class="bars">
+    <div class="bar-row"><span class="bar-name">Clientes</span><div class="bar" id="barCustomers" role="group" aria-label="Participação no número de clientes"></div></div>
+    <div class="bar-row"><span class="bar-name">Receita</span><div class="bar" id="barRevenue" role="group" aria-label="Participação na receita"></div></div>
+  </div>
+  <p class="split-story" id="splitStory"></p>
+</section>
+
+<nav class="filters" aria-label="Filtros">
+  <div class="chips" id="chips"></div>
+  <label class="field"><span>País</span>
+    <select id="country"><option value="">Todos os países</option></select>
+  </label>
+  <button class="ghost" id="reset" type="button">Limpar filtros</button>
+  <p class="active-filter" id="activeFilter" aria-live="polite"></p>
+</nav>
+
+<section class="kpis" aria-label="Indicadores">
+  <div class="kpi"><span class="k-label">Clientes</span><span class="k-value" id="kCustomers"></span><span class="k-sub" id="kCustomersSub"></span></div>
+  <div class="kpi"><span class="k-label">Receita</span><span class="k-value" id="kRevenue"></span><span class="k-sub" id="kRevenueSub"></span></div>
+  <div class="kpi"><span class="k-label">Pedidos</span><span class="k-value" id="kOrders"></span><span class="k-sub" id="kOrdersSub"></span></div>
+  <div class="kpi"><span class="k-label">Ticket médio</span><span class="k-value" id="kTicket"></span><span class="k-sub">receita ÷ pedidos</span></div>
+  <div class="kpi kpi-mm"><span class="k-label">Receita por cliente</span>
+    <div class="mm"><div><span class="k-value" id="kMedian"></span><span class="k-sub">mediana</span></div><div><span class="k-value muted" id="kMean"></span><span class="k-sub">média</span></div></div>
+    <span class="k-sub" id="kRatio"></span></div>
+</section>
+
+<main class="grid">
+  <section class="panel span-2">
+    <header class="p-head">
+      <div><h2>Receita mês a mês</h2><p class="desc">Barras empilhadas por segmento. Dez/2011 vai só até o dia 9.</p></div>
+      <div class="seg-toggle" role="radiogroup" aria-label="Métrica mensal">
+        <button role="radio" aria-checked="true" data-metric="rev">Receita</button>
+        <button role="radio" aria-checked="false" data-metric="orders">Pedidos</button>
+      </div>
+    </header>
+    <div class="chart tall"><canvas id="cMonthly"></canvas></div>
+  </section>
+
+  <section class="panel">
+    <header class="p-head"><div><h2>Concentração da receita</h2><p class="desc">Curva acumulada dos clientes filtrados, do maior para o menor.</p></div></header>
+    <div class="chart"><canvas id="cPareto"></canvas></div>
+    <div class="slider">
+      <label for="topPct">Top <output id="topOut">5</output>% dos clientes</label>
+      <input type="range" id="topPct" min="1" max="50" value="5">
+      <p class="slider-result" id="topResult"></p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="p-head"><div><h2>Países</h2><p class="desc">Receita dos clientes filtrados. Clique numa barra para filtrar o país.</p></div></header>
+    <div class="chart"><canvas id="cCountry"></canvas></div>
+  </section>
+
+  <section class="panel span-2">
+    <header class="p-head">
+      <div><h2>Cada ponto é um cliente</h2><p class="desc">Pedidos × receita total em escala logarítmica. As linhas tracejadas são os cortes da segmentação (Q75 de pedidos e de receita). Clique num ponto para ver o cliente.</p></div>
+    </header>
+    <div class="chart tall"><canvas id="cScatter"></canvas></div>
+    <p class="note" id="spearmanNote"></p>
+  </section>
+
+  <section class="panel span-2">
+    <header class="p-head">
+      <div><h2>Quando os pedidos acontecem</h2><p class="desc">Dia da semana × hora da compra. A loja não registra vendas aos sábados.</p></div>
+      <div class="seg-toggle" role="radiogroup" aria-label="Métrica do mapa de calor">
+        <button role="radio" aria-checked="true" data-heat="n">Pedidos</button>
+        <button role="radio" aria-checked="false" data-heat="rev">Receita</button>
+      </div>
+    </header>
+    <div class="heat-wrap"><div class="heat" id="heat"></div></div>
+  </section>
+
+  <section class="panel span-2" id="tableSection">
+    <header class="p-head">
+      <div><h2>Clientes</h2><p class="desc" id="tableDesc"></p></div>
+      <div class="table-tools">
+        <label class="field search"><span class="sr">Buscar cliente</span><input id="search" type="search" placeholder="Buscar por ID ou país" autocomplete="off"></label>
+        <button class="ghost" id="exportCsv" type="button">Baixar CSV</button>
+      </div>
+    </header>
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager"><button class="ghost" id="prev" type="button">Anterior</button><span id="pageInfo"></span><button class="ghost" id="next" type="button">Próxima</button></div>
+  </section>
+</main>
+
+<section class="notes">
+  <div class="note-block">
+    <h2>Qualidade dos dados</h2>
+    <p>Antes da análise comercial, cada registro foi classificado. Uma venda válida é uma invoice não cancelada, com quantidade e preço maiores que zero — <strong id="qValid"></strong> linhas passaram nesse filtro.</p>
+    <dl class="quality" id="quality"></dl>
+  </div>
+  <div class="note-block">
+    <h2>Como a segmentação foi feita</h2>
+    <ol class="method">
+      <li><b>Ingestão</b> do dataset público da UCI.</li>
+      <li><b>Profiling</b> de nulos, duplicidades, cancelamentos e valores inválidos.</li>
+      <li><b>Base analítica</b> com vendas válidas de clientes identificados.</li>
+      <li><b>Métricas por cliente:</b> receita, pedidos, ticket, itens e recência.</li>
+      <li><b>Estatística descritiva:</b> mediana, quartis, concentração e correlação de Spearman.</li>
+      <li><b>Segmentação</b> por cortes de mediana e Q75 em pedidos e receita.</li>
+    </ol>
+    <div class="rules" id="rules"></div>
+    <p class="small">A recência foi calculada e aparece na tabela, mas não entra na classificação — por isso a segmentação não é chamada de RFM.</p>
+  </div>
+</section>
+
+<footer class="footer">Projeto de portfólio · dados: Chen, D. (2015), UCI Machine Learning Repository · reprodução em <code>src/analysis.py</code></footer>
+</div>
+
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dTitle">
+  <div class="drawer-inner">
+    <button class="close" id="dClose" type="button" aria-label="Fechar detalhes do cliente">×</button>
+    <p class="d-seg" id="dSeg"></p>
+    <h2 id="dTitle"></h2>
+    <p class="d-country" id="dCountry"></p>
+    <dl class="d-stats" id="dStats"></dl>
+    <p class="d-rank" id="dRank"></p>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/data.js"></script>
+<script src="assets/dashboard.js"></script>
+</body>
+</html>
